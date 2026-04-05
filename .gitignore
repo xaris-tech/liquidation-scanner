@@ -1,0 +1,99 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.flutter-plugins
+.pub-cache/
+.pub/
+/build/
+/coverage/
+android/nul
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Supabase config (if local)
+supabase/
+*.env
+
+# Lock files (optional - uncomment if you want to commit pubspec.lock)
+# pubspec.lock
+
+# Test coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Mobile device locks
+*.lock
+*.lockfile
+
+# Gradle
+.gradle/
+/android/.gradle/
+/android/build/
+
+# Keystore files
+*.jks
+*.keystore
+!</android/app/debug.keystore
+!</android/app/release.keystore
+
+# Bundle artifacts
+*.aab
+*.apk
+*.ipa
+
+# Linux
+*.desktop
+*.desktop.dat
+
+# macOS
+*.dSYM.zip
+*.dSYM/
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+*.lnk
