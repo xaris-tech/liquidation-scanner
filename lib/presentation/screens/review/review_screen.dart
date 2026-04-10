@@ -9,6 +9,7 @@ import '../../providers/database_provider.dart';
 import '../../../data/database/app_database.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/ai_extraction_service.dart';
+import '../../../data/services/document_scanner_service.dart';
 import 'package:drift/drift.dart' as drift;
 
 class ReviewScreen extends ConsumerStatefulWidget {
@@ -37,16 +38,19 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   String _rawOcrText = '';
   String _parsedJson = '';
   final List<Map<String, dynamic>> _items = [];
+  double _vatAmount = 0.0;
+  String? _currentImagePath;
 
   @override
   void initState() {
     super.initState();
+    _currentImagePath = widget.imagePath;
     _dateController.text = DateFormat('MMM dd, yyyy').format(_selectedDate);
     _extractReceiptData();
   }
 
   Future<void> _extractReceiptData() async {
-    if (widget.imagePath == null) {
+    if (_currentImagePath == null) {
       setState(() => _isExtracting = false);
       return;
     }
@@ -55,7 +59,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
     try {
       final result = await AiExtractionService.extractFromImage(
-        widget.imagePath!,
+        _currentImagePath!,
       );
 
       if (mounted) {
@@ -88,6 +92,16 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               'totalPrice':
                   item.totalPrice ??
                   (item.unitPrice ?? 0.0) * (item.quantity ?? 1),
+            });
+          }
+          _vatAmount = result.vatAmount ?? 0.0;
+          if (_vatAmount > 0) {
+            _items.add({
+              'name': 'VAT (12%)',
+              'quantity': 1,
+              'unitPrice': _vatAmount,
+              'totalPrice': _vatAmount,
+              'isVat': true,
             });
           }
           _isExtracting = false;
@@ -260,7 +274,7 @@ ${result.items.map((i) => '    {"name": "${i.name}", "quantity": ${i.quantity ??
             notes: drift.Value(
               _notesController.text.isEmpty ? null : _notesController.text,
             ),
-            imagePath: drift.Value(widget.imagePath),
+            imagePath: drift.Value(_currentImagePath),
             lineItems: lineItemsJson != null
                 ? drift.Value(lineItemsJson)
                 : const drift.Value.absent(),
@@ -274,6 +288,9 @@ ${result.items.map((i) => '    {"name": "${i.name}", "quantity": ${i.quantity ??
           amount: double.parse(_amountController.text),
           projectName: project.name,
         );
+
+        ref.invalidate(projectStatsProvider);
+        ref.invalidate(projectsProvider);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -323,6 +340,13 @@ ${result.items.map((i) => '    {"name": "${i.name}", "quantity": ${i.quantity ??
           onPressed: () => context.pop(),
         ),
         title: const Text('Review Receipt'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.camera_alt_rounded),
+            tooltip: 'Rescan Image',
+            onPressed: () => _rescanImage(context),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -331,19 +355,44 @@ ${result.items.map((i) => '    {"name": "${i.name}", "quantity": ${i.quantity ??
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.imagePath != null)
-                Container(
-                  height: 200,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: AppColors.surfaceContainerLow,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.file(
-                      File(widget.imagePath!),
-                      fit: BoxFit.cover,
+              if (_currentImagePath != null)
+                GestureDetector(
+                  onTap: () =>
+                      _showFullScreenImage(context, _currentImagePath!),
+                  child: Container(
+                    height: 200,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: AppColors.surfaceContainerLow,
+                    ),
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.file(
+                            File(_currentImagePath!),
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          ),
+                        ),
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.fullscreen,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -733,23 +782,73 @@ ${result.items.map((i) => '    {"name": "${i.name}", "quantity": ${i.quantity ??
               color: AppColors.primaryContainer.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                Text(
-                  'Items: ${_items.length}',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Items: ${_items.length}',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      'Subtotal: ₱${_calculateItemsTotal().toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  'Total: ₱${_calculateItemsTotal().toStringAsFixed(2)}',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                if (_vatAmount > 0) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'VAT (12%):',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        '₱${_vatAmount.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
+                ],
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total:',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      '₱${(_calculateItemsTotal() + _vatAmount).toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -773,15 +872,24 @@ ${result.items.map((i) => '    {"name": "${i.name}", "quantity": ${i.quantity ??
     }
   }
 
-  void _showAddItemDialog() {
+  void _showAddItemDialog({int? editIndex}) {
     final nameController = TextEditingController();
     final qtyController = TextEditingController(text: '1');
     final priceController = TextEditingController();
+    final vatController = TextEditingController(text: '0');
+
+    if (editIndex != null && editIndex < _items.length) {
+      final item = _items[editIndex];
+      nameController.text = item['name'];
+      qtyController.text = item['quantity'].toString();
+      priceController.text = item['totalPrice'].toString();
+      vatController.text = _vatAmount > 0 ? _vatAmount.toString() : '0';
+    }
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Item'),
+        title: Text(editIndex != null ? 'Edit Item' : 'Add Item'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -808,12 +916,21 @@ ${result.items.map((i) => '    {"name": "${i.name}", "quantity": ${i.quantity ??
                     controller: priceController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: 'Unit Price',
+                      labelText: 'Total Price',
                       prefixText: '₱ ',
                     ),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: vatController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'VAT Amount (optional)',
+                prefixText: '₱ ',
+              ),
             ),
           ],
         ),
@@ -827,23 +944,106 @@ ${result.items.map((i) => '    {"name": "${i.name}", "quantity": ${i.quantity ??
               final name = nameController.text.trim();
               final qty = int.tryParse(qtyController.text) ?? 1;
               final price = double.tryParse(priceController.text) ?? 0.0;
+              final vat = double.tryParse(vatController.text) ?? 0.0;
 
               if (name.isNotEmpty && price > 0) {
                 setState(() {
-                  _items.add({
-                    'name': name,
-                    'quantity': qty,
-                    'unitPrice': price,
-                    'totalPrice': price * qty,
-                  });
+                  if (editIndex != null) {
+                    _items[editIndex] = {
+                      'name': name,
+                      'quantity': qty,
+                      'unitPrice': price / qty,
+                      'totalPrice': price,
+                    };
+                  } else {
+                    _items.add({
+                      'name': name,
+                      'quantity': qty,
+                      'unitPrice': price / qty,
+                      'totalPrice': price,
+                    });
+                  }
+                  if (vat > 0) {
+                    _vatAmount = vat;
+                  }
                 });
                 _updateTotalFromItems();
                 Navigator.pop(context);
               }
             },
-            child: const Text('Add'),
+            child: Text(editIndex != null ? 'Update' : 'Add'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _rescanImage(BuildContext context) async {
+    final result = await DocumentScannerService.scanFromGallery();
+    if (result != null && mounted) {
+      setState(() {
+        _currentImagePath = result.path;
+      });
+      _extractReceiptData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image rescanned successfully')),
+      );
+    }
+  }
+
+  void _showFullScreenImage(BuildContext context, String imagePath) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Colors.white),
+                tooltip: 'Rescan Image',
+                onPressed: () {
+                  Navigator.pop(context);
+                  _rescanImage(context);
+                },
+              ),
+            ],
+          ),
+          body: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Image.file(File(imagePath), fit: BoxFit.contain),
+                ),
+              ),
+              Positioned(
+                bottom: MediaQuery.of(context).padding.bottom + 20,
+                left: 20,
+                right: 20,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _rescanImage(context);
+                  },
+                  icon: const Icon(Icons.camera_alt_rounded),
+                  label: const Text('Retake / Rescan'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -23,7 +23,7 @@ class PendingAuditsScreen extends ConsumerWidget {
             backgroundColor: Colors.transparent,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => context.pop(),
+              onPressed: () => context.go('/projects'),
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(

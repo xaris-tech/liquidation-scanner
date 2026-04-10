@@ -98,7 +98,7 @@ class _AuditVerificationScreenState
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
-                          _ContextHeader(project: project),
+                          _ContextHeader(project: project, receipt: receipt),
                           const SizedBox(height: 20),
                           _ReceiptImageCard(receipt: receipt),
                           const SizedBox(height: 20),
@@ -158,7 +158,7 @@ class _AuditVerificationScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Receipt verified successfully!')),
         );
-        context.pop();
+        context.go('/projects');
       }
     } catch (e) {
       if (mounted) {
@@ -225,13 +225,14 @@ class _AuditVerificationScreenState
   }
 }
 
-class _ContextHeader extends StatelessWidget {
+class _ContextHeader extends ConsumerWidget {
   final Project project;
+  final Receipt receipt;
 
-  const _ContextHeader({required this.project});
+  const _ContextHeader({required this.project, required this.receipt});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
         Expanded(
@@ -261,7 +262,7 @@ class _ContextHeader extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'ACTIVE PROJECT',
+                        'CURRENT PROJECT',
                         style: TextStyle(
                           color: AppColors.outline,
                           fontSize: 10,
@@ -292,7 +293,116 @@ class _ContextHeader extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(width: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.swap_horiz, color: Colors.white),
+            onPressed: () => _showProjectSelector(context, ref),
+          ),
+        ),
       ],
+    );
+  }
+
+  void _showProjectSelector(BuildContext context, WidgetRef ref) async {
+    final db = ref.read(databaseProvider);
+    final projects = await db.getAllProjects();
+    final rec = receipt;
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ProjectSelectorSheet(
+        projects: projects,
+        currentReceipt: rec,
+        onSelect: (project) async {
+          await db.updateReceiptProject(rec.id, project.id);
+          if (ctx.mounted) {
+            Navigator.pop(ctx);
+            Navigator.pop(context);
+            context.push('/audit/${rec.id}');
+          }
+        },
+      ),
+    );
+  }
+}
+
+class _ProjectSelectorSheet extends StatelessWidget {
+  final List<Project> projects;
+  final Receipt currentReceipt;
+  final Function(Project) onSelect;
+
+  const _ProjectSelectorSheet({
+    required this.projects,
+    required this.currentReceipt,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                const Text(
+                  'Move to Project',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: projects.length,
+              itemBuilder: (listCtx, index) {
+                final p = projects[index];
+                final isSelected = p.id == currentReceipt.projectId;
+
+                return ListTile(
+                  leading: Icon(
+                    Icons.folder,
+                    color: isSelected ? AppColors.primary : AppColors.outline,
+                  ),
+                  title: Text(
+                    p.name,
+                    style: TextStyle(
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                  subtitle: p.location != null ? Text(p.location!) : null,
+                  trailing: isSelected
+                      ? const Icon(Icons.check, color: AppColors.primary)
+                      : null,
+                  onTap: isSelected ? null : () => onSelect(p),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -301,6 +411,31 @@ class _ReceiptImageCard extends StatelessWidget {
   final Receipt receipt;
 
   const _ReceiptImageCard({required this.receipt});
+
+  static void _showFullScreenImage(BuildContext context, String imagePath) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.file(File(imagePath), fit: BoxFit.contain),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -355,12 +490,35 @@ class _ReceiptImageCard extends StatelessWidget {
             ),
           ),
           if (receipt.imagePath != null)
-            ClipRRect(
-              child: Image.file(
-                File(receipt.imagePath!),
-                height: 250,
-                width: double.infinity,
-                fit: BoxFit.cover,
+            GestureDetector(
+              onTap: () => _showFullScreenImage(context, receipt.imagePath!),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    child: Image.file(
+                      File(receipt.imagePath!),
+                      height: 250,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.fullscreen,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             )
           else

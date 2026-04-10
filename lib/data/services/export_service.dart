@@ -3,15 +3,21 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../database/app_database.dart';
 
 class ExportService {
+  static final String _phpSymbol = 'PHP';
+
   static Future<File> generateProjectReportPdf(
     Project project,
     List<Receipt> receipts,
   ) async {
     final pdf = pw.Document();
-    final currencyFormat = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
+    final currencyFormat = NumberFormat.currency(
+      symbol: _phpSymbol,
+      decimalDigits: 2,
+    );
     final dateFormat = DateFormat('MMM dd, yyyy');
 
     double total = 0;
@@ -149,6 +155,11 @@ class ExportService {
       '${output.path}/report_${project.id}_${DateTime.now().millisecondsSinceEpoch}.pdf',
     );
     await file.writeAsBytes(await pdf.save());
+
+    await Share.shareXFiles([
+      XFile(file.path),
+    ], text: 'Project Report: ${project.name}');
+
     return file;
   }
 
@@ -157,7 +168,10 @@ class ExportService {
     List<Receipt> receipts,
   ) async {
     final pdf = pw.Document();
-    final currencyFormat = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
+    final currencyFormat = NumberFormat.currency(
+      symbol: _phpSymbol,
+      decimalDigits: 2,
+    );
     final dateFormat = DateFormat('MMM dd, yyyy HH:mm');
 
     final pending = receipts.where((r) => r.status == 'pending').toList();
@@ -303,9 +317,9 @@ class ExportService {
     );
 
     final output = await getApplicationDocumentsDirectory();
-    final file = File(
-      '${output.path}/audit_${project.id}_${DateTime.now().millisecondsSinceEpoch}.pdf',
-    );
+    final sanitizedName = _sanitizeFileName(project.name);
+    final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final file = File('${output.path}/${sanitizedName}-${dateStr}.pdf');
     await file.writeAsBytes(await pdf.save());
     return file;
   }
@@ -315,6 +329,10 @@ class ExportService {
     List<Receipt> receipts,
   ) async {
     final dateFormat = DateFormat('yyyy-MM-dd');
+    final currencyFormat = NumberFormat.currency(
+      symbol: _phpSymbol,
+      decimalDigits: 2,
+    );
 
     final buffer = StringBuffer();
     buffer.writeln('Date,Vendor,Category,Amount,Status,Notes');
@@ -324,18 +342,30 @@ class ExportService {
         '${dateFormat.format(r.receiptDate)},'
         '"${r.vendor}",'
         '${r.category ?? ""},'
-        '${r.amount},'
+        '${currencyFormat.format(r.amount)},'
         '${r.status},'
         '"${r.notes ?? ""}"',
       );
     }
 
     final output = await getApplicationDocumentsDirectory();
-    final file = File(
-      '${output.path}/export_${project.id}_${DateTime.now().millisecondsSinceEpoch}.csv',
-    );
+    final sanitizedName = _sanitizeFileName(project.name);
+    final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final file = File('${output.path}/${sanitizedName}-${dateStr}.csv');
     await file.writeAsString(buffer.toString());
+
+    await Share.shareXFiles([
+      XFile(file.path),
+    ], text: 'CSV Export: ${project.name}');
+
     return file;
+  }
+
+  static String _sanitizeFileName(String name) {
+    return name
+        .replaceAll(RegExp(r'[^\w\s-]'), '')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .toLowerCase();
   }
 
   static pw.Widget _buildStatBox(String label, String value, PdfColor color) {

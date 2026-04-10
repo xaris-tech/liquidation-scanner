@@ -11,7 +11,8 @@ class MainScaffold extends StatelessWidget {
     final location = GoRouterState.of(context).uri.path;
     if (location.startsWith('/projects')) return 0;
     if (location.startsWith('/scan')) return 1;
-    if (location.startsWith('/settings')) return 2;
+    if (location.startsWith('/analytics')) return 2;
+    if (location.startsWith('/settings')) return 3;
     return 0;
   }
 
@@ -51,9 +52,15 @@ class MainScaffold extends StatelessWidget {
                   onTap: () => context.go('/scan'),
                 ),
                 _NavItem(
+                  icon: Icons.analytics_rounded,
+                  label: 'Analytics',
+                  isSelected: currentIndex == 2,
+                  onTap: () => context.go('/analytics'),
+                ),
+                _NavItem(
                   icon: Icons.settings_rounded,
                   label: 'Settings',
-                  isSelected: currentIndex == 2,
+                  isSelected: currentIndex == 3,
                   onTap: () => context.go('/settings'),
                 ),
               ],

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
+import '../../../core/theme/app_colors.dart';
 
 class ScannerScreen extends StatefulWidget {
   final String imagePath;
@@ -13,11 +14,14 @@ class ScannerScreen extends StatefulWidget {
   State<ScannerScreen> createState() => _ScannerScreenState();
 }
 
-class _ScannerScreenState extends State<ScannerScreen> {
+class _ScannerScreenState extends State<ScannerScreen>
+    with TickerProviderStateMixin {
   late List<Offset> _corners;
   bool _isProcessing = false;
   int _selectedFilter = 0;
   String? _processedImagePath;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   final List<String> _filterNames = [
     'Original',
@@ -44,6 +48,21 @@ class _ScannerScreenState extends State<ScannerScreen> {
       const Offset(50, 350),
     ];
     _processedImagePath = widget.imagePath;
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
   }
 
   void _updateCorner(int index, Offset newPosition) {
@@ -145,11 +164,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF1A1A2E),
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: const Color(0xFF1A1A2E),
         foregroundColor: Colors.white,
         title: const Text('Adjust Corners'),
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -180,11 +200,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
             children: [
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white30, width: 2),
-                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white24, width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(10),
                   child: Image.file(
                     File(_processedImagePath ?? widget.imagePath),
                     fit: BoxFit.contain,
@@ -198,8 +225,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
               ),
               ...List.generate(4, (index) {
                 return Positioned(
-                  left: _corners[index].dx - 15,
-                  top: _corners[index].dy - 15,
+                  left: _corners[index].dx - 18,
+                  top: _corners[index].dy - 18,
                   child: GestureDetector(
                     onPanUpdate: (details) {
                       final newPos = Offset(
@@ -214,31 +241,44 @@ class _ScannerScreenState extends State<ScannerScreen> {
                       );
                       _updateCorner(index, newPos);
                     },
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.blue, width: 3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                    child: AnimatedBuilder(
+                      animation: _pulseAnimation,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: _pulseAnimation.value,
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.primary,
+                                width: 3,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: 10,
+                                height: 10,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Colors.blue,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                 );
@@ -252,8 +292,19 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   Widget _buildFilterBar() {
     return Container(
-      height: 80,
-      color: Colors.black,
+      height: 90,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16213E),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -262,16 +313,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
           final isSelected = _selectedFilter == index;
           return GestureDetector(
             onTap: () => setState(() => _selectedFilter = index),
-            child: Container(
-              width: 70,
-              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 75,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? Colors.blue.withValues(alpha: 0.3)
-                    : Colors.white10,
-                borderRadius: BorderRadius.circular(8),
+                    ? AppColors.primary.withValues(alpha: 0.2)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSelected ? Colors.blue : Colors.white30,
+                  color: isSelected ? AppColors.primary : Colors.white24,
                   width: isSelected ? 2 : 1,
                 ),
               ),
@@ -279,20 +331,30 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 24,
-                    height: 24,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
                       color: _filterColors[index],
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: _filterColors[index].withValues(
+                                  alpha: 0.5,
+                                ),
+                                blurRadius: 8,
+                              ),
+                            ]
+                          : null,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     _filterNames[index],
                     style: TextStyle(
-                      color: isSelected ? Colors.blue : Colors.white70,
-                      fontSize: 10,
+                      color: isSelected ? AppColors.primary : Colors.white70,
+                      fontSize: 11,
                       fontWeight: isSelected
                           ? FontWeight.bold
                           : FontWeight.normal,
@@ -312,10 +374,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
-        top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
+        top: 16,
+        bottom: MediaQuery.of(context).padding.bottom + 16,
       ),
-      color: Colors.black,
+      decoration: const BoxDecoration(color: Color(0xFF16213E)),
       child: Row(
         children: [
           Expanded(
@@ -327,6 +389,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 foregroundColor: Colors.white,
                 side: const BorderSide(color: Colors.white30),
                 padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
@@ -357,20 +422,19 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   : const Icon(Icons.check),
               label: Text(_isProcessing ? 'Processing...' : 'Done'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 4,
               ),
             ),
           ),
         ],
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }
 
@@ -384,7 +448,7 @@ class _CornerPainter extends CustomPainter {
     if (corners.length != 4) return;
 
     final paint = Paint()
-      ..color = Colors.blue
+      ..color = AppColors.primary
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
 
@@ -398,7 +462,7 @@ class _CornerPainter extends CustomPainter {
     canvas.drawPath(path, paint);
 
     final fillPaint = Paint()
-      ..color = Colors.blue.withValues(alpha: 0.1)
+      ..color = AppColors.primary.withValues(alpha: 0.15)
       ..style = PaintingStyle.fill;
 
     canvas.drawPath(path, fillPaint);

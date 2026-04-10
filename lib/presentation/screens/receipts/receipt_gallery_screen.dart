@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../providers/database_provider.dart';
 import '../../../data/database/app_database.dart';
@@ -72,7 +73,7 @@ class ReceiptGalleryScreen extends ConsumerWidget {
               final receipt = receiptsWithImages[index];
               return _ReceiptGalleryItem(
                 receipt: receipt,
-                onTap: () => _showReceiptDetail(context, receipt),
+                onTap: () => _showReceiptDetail(context, receipt, ref),
               );
             },
           );
@@ -83,50 +84,169 @@ class ReceiptGalleryScreen extends ConsumerWidget {
     );
   }
 
-  void _showReceiptDetail(BuildContext context, Receipt receipt) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (receipt.imagePath != null)
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
-                child: Image.file(File(receipt.imagePath!), fit: BoxFit.cover),
+  void _showReceiptDetail(
+    BuildContext context,
+    Receipt receipt,
+    WidgetRef ref,
+  ) {
+    if (receipt.imagePath != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
               ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    receipt.vendor,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+              title: Text(
+                receipt.vendor,
+                style: const TextStyle(color: Colors.white),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.white),
+                  onPressed: () => _confirmDelete(context, receipt, ref),
+                ),
+              ],
+            ),
+            body: Center(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.file(File(receipt.imagePath!), fit: BoxFit.contain),
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        margin: const EdgeInsets.symmetric(horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              '₱${receipt.amount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                            ),
+                            if (receipt.category != null) ...[
+                              const SizedBox(height: 8),
+                              Chip(
+                                label: Text(
+                                  receipt.category!,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                backgroundColor: Colors.white24,
+                              ),
+                            ],
+                            const SizedBox(height: 8),
+                            Text(
+                              DateFormat(
+                                'MMM dd, yyyy',
+                              ).format(receipt.receiptDate),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '₱${receipt.amount.toStringAsFixed(2)}',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (receipt.category != null) ...[
-                    const SizedBox(height: 4),
-                    Chip(label: Text(receipt.category!)),
-                  ],
-                ],
+                ),
               ),
             ),
-          ],
+          ),
         ),
+      );
+    }
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    Receipt receipt,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Receipt'),
+        content: const Text(
+          'Are you sure you want to delete this receipt? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
       ),
     );
+
+    if (confirmed == true && context.mounted) {
+      final db = ref.read(databaseProvider);
+      await db.deleteReceipt(receipt.id);
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Receipt deleted')));
+      }
+    }
+  }
+
+  Future<void> _deleteReceipt(
+    BuildContext context,
+    Receipt receipt,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Receipt'),
+        content: const Text(
+          'Are you sure you want to delete this receipt? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final db = ref.read(databaseProvider);
+      await db.deleteReceipt(receipt.id);
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Receipt deleted')));
+      }
+    }
   }
 }
 
@@ -177,15 +297,17 @@ class _ReceiptGalleryItem extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        receipt.vendor,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                      Flexible(
+                        child: Text(
+                          receipt.vendor,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         '₱${receipt.amount.toStringAsFixed(2)}',

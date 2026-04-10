@@ -4,6 +4,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:flutter_ocr_kit/flutter_ocr_kit.dart';
 import 'native_llm_service.dart';
 import 'groq_cloud_service.dart';
+import 'local_llm_service.dart';
 
 class ReceiptItem {
   final String name;
@@ -29,6 +30,7 @@ class ReceiptExtractionResult {
   final String? error;
   final List<ReceiptItem> items;
   final String extractionMethod;
+  final double? vatAmount;
 
   ReceiptExtractionResult({
     this.vendor,
@@ -40,6 +42,7 @@ class ReceiptExtractionResult {
     this.error,
     this.items = const [],
     this.extractionMethod = 'ml_kit',
+    this.vatAmount,
   });
 
   bool get isValid => vendor != null && amount != null && date != null;
@@ -176,6 +179,45 @@ class AiExtractionService {
     );
     debugPrint('');
 
+    ReceiptExtractionResult? localLlmResult;
+
+    try {
+      debugPrint('📤 Sending to Local LLM...');
+      localLlmResult = await _parseWithLocalLlm(rawText);
+      if (localLlmResult != null) {
+        debugPrint('📥 Received from Local LLM: SUCCESS');
+        _logResult(localLlmResult);
+        localLlmResult = ReceiptExtractionResult(
+          vendor: localLlmResult?.vendor,
+          amount: localLlmResult?.amount,
+          date: localLlmResult?.date,
+          category: localLlmResult?.category,
+          confidence: localLlmResult?.confidence ?? 0.7,
+          rawText: rawText,
+          error: localLlmResult?.error,
+          items: localLlmResult?.items ?? [],
+          extractionMethod: localLlmResult?.extractionMethod ?? 'local_llm',
+        );
+        return localLlmResult;
+      } else {
+        debugPrint('📥 Received from Local LLM: FAILED (null result)');
+      }
+    } catch (e) {
+      debugPrint('   ⚠️ Local LLM failed: $e');
+    }
+
+    debugPrint(
+      '┌─────────────────────────────────────────────────────────────┐',
+    );
+    debugPrint('│ 🔧 STAGE 4: Regex Fallback                              │');
+    debugPrint(
+      '├─────────────────────────────────────────────────────────────┤',
+    );
+    debugPrint(
+      '└─────────────────────────────────────────────────────────────┘',
+    );
+    debugPrint('');
+
     final regexResult = _parseWithRegex(rawText);
     _logResult(regexResult);
 
@@ -189,6 +231,7 @@ class AiExtractionService {
       error: regexResult.error,
       items: regexResult.items,
       extractionMethod: regexResult.extractionMethod,
+      vatAmount: regexResult.vatAmount,
     );
   }
 
@@ -248,12 +291,65 @@ class AiExtractionService {
           confidence: 0.9,
           items: items,
           extractionMethod: 'groq_cloud',
+          vatAmount: result['tax']?.toDouble() ?? result['vat']?.toDouble(),
         );
       }
 
       return null;
     } catch (e) {
       debugPrint('   ❌ Groq parse error: $e');
+      return null;
+    }
+  }
+
+  static Future<ReceiptExtractionResult?> _parseWithLocalLlm(
+    String text,
+  ) async {
+    try {
+      debugPrint('   📤 → Sending ${text.length} chars to Local LLM');
+
+      final localLlmService = LocalLlmService();
+      final result = await localLlmService.parseReceipt(text);
+
+      if (result != null) {
+        debugPrint('   📥 ← Received from Local LLM: SUCCESS');
+
+        final items = <ReceiptItem>[];
+        if (result['items'] != null) {
+          for (final item in result['items'] as List) {
+            items.add(
+              ReceiptItem(
+                name: item['description'] ?? item['name'] ?? '',
+                quantity: item['quantity'],
+                unitPrice: item['unit_price']?.toDouble(),
+                totalPrice: item['total_price']?.toDouble(),
+              ),
+            );
+          }
+        }
+
+        DateTime? parsedDate;
+        if (result['receipt_date'] != null) {
+          try {
+            parsedDate = DateTime.parse(result['receipt_date']);
+          } catch (_) {}
+        }
+
+        return ReceiptExtractionResult(
+          vendor: result['vendor'],
+          amount: result['total']?.toDouble() ?? result['subtotal']?.toDouble(),
+          date: parsedDate,
+          category: result['category'],
+          confidence: 0.7,
+          items: items,
+          extractionMethod: 'local_llm',
+          vatAmount: result['tax']?.toDouble() ?? result['vat']?.toDouble(),
+        );
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('   ❌ Local LLM parse error: $e');
       return null;
     }
   }
@@ -326,6 +422,9 @@ Extract JSON with: vendor, amount, date (MM/DD/YYYY), items [{name, price}]. Ret
             rawText: text,
             items: items,
             extractionMethod: 'native_onnx_llm',
+            vatAmount:
+                (json['tax'] as num?)?.toDouble() ??
+                (json['vat'] as num?)?.toDouble(),
           );
         } catch (e) {
           debugPrint('   ⚠️ JSON parse error: $e');
@@ -433,6 +532,21 @@ Extract JSON with: vendor, amount, date (MM/DD/YYYY), items [{name, price}]. Ret
       amount = items.fold<double>(0.0, (s, i) => s + (i.totalPrice ?? 0));
     }
 
+    double? vatAmount;
+    for (final line in lines) {
+      final lower = line.toLowerCase();
+      if (lower.contains('vat') && !lower.contains('incl')) {
+        final m = RegExp(r'[\d,]+\.?\d*').firstMatch(line);
+        if (m != null) {
+          final vat = double.tryParse(m.group(0)!.replaceAll(',', ''));
+          if (vat != null && vat > 0 && vat < amount! * 0.2) {
+            vatAmount = vat;
+            break;
+          }
+        }
+      }
+    }
+
     category = _inferCategory(text);
 
     return ReceiptExtractionResult(
@@ -444,6 +558,7 @@ Extract JSON with: vendor, amount, date (MM/DD/YYYY), items [{name, price}]. Ret
       rawText: text,
       items: items,
       extractionMethod: 'flutter_ocr_kit_regex',
+      vatAmount: vatAmount,
     );
   }
 

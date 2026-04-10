@@ -17,6 +17,11 @@ class ProjectsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.surface,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddProjectDialog(context, ref),
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -126,12 +131,10 @@ class ProjectsScreen extends ConsumerWidget {
               child: Center(child: Text('Error: $error')),
             ),
           ),
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          SliverToBoxAdapter(child: _PendingAuditsSection()),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddProjectDialog(context, ref),
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -706,6 +709,129 @@ class _EmptyProjects extends StatelessWidget {
             label: const Text('Create Project'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PendingAuditsSection extends ConsumerWidget {
+  const _PendingAuditsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendingReceipts = ref.watch(pendingReceiptsProvider);
+
+    return pendingReceipts.when(
+      data: (receipts) {
+        if (receipts.isEmpty) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Pending Audits',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.push('/pending-audits'),
+                    child: const Text('View All'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...receipts
+                  .take(5)
+                  .map(
+                    (receipt) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _PendingReceiptCard(receipt: receipt),
+                    ),
+                  ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _PendingReceiptCard extends StatelessWidget {
+  final Receipt receipt;
+
+  const _PendingReceiptCard({required this.receipt});
+
+  @override
+  Widget build(BuildContext context) {
+    final currencyFormat = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
+    final dateFormat = DateFormat('MMM dd, yyyy');
+
+    return GestureDetector(
+      onTap: () => context.push('/audit/${receipt.id}'),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.pending_actions, color: Colors.orange),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    receipt.vendor,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    dateFormat.format(receipt.receiptDate),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              currencyFormat.format(receipt.amount),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

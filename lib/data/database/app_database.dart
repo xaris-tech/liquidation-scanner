@@ -201,6 +201,15 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<void> updateReceiptProject(int receiptId, int projectId) async {
+    await (update(receipts)..where((r) => r.id.equals(receiptId))).write(
+      ReceiptsCompanion(
+        projectId: Value(projectId),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Future<int> deleteReceipt(int id) =>
       (delete(receipts)..where((r) => r.id.equals(id))).go();
 

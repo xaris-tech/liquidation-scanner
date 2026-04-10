@@ -1,9 +1,7 @@
 import 'package:flutter/services.dart';
 
 class NativeLlmService {
-  static const MethodChannel _channel = MethodChannel(
-    'com.liquidation.liquidation_scanner/llm',
-  );
+  static const MethodChannel _channel = MethodChannel('com.liquify.app/llm');
 
   static bool _isInitialized = false;
 

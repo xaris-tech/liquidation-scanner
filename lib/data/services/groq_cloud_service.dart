@@ -48,6 +48,8 @@ class GroqCloudService {
 
       final systemPrompt =
           '''You are a receipt parser. Return ONLY valid JSON, no markdown.
+IMPORTANT: If the receipt contains VAT or tax, include it as the LAST item in the items array with description "VAT (12%)" or "TAX", quantity: 1, unit_price: [tax amount], total_price: [tax amount].
+
 Schema: { vendor, receipt_date, items: [{description, quantity, unit_price, total_price}], subtotal, tax, total, currency }''';
 
       final userPrompt = 'Parse this receipt OCR text: $rawOcrText';

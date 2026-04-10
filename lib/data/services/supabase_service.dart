@@ -7,7 +7,8 @@ class SupabaseService {
   static bool _isConfigured = false;
 
   static const String supabaseUrl = 'https://qexvtratttwkcdxevrdy.supabase.co';
-  static const String supabaseAnonKey = 'sb_publishable_BVCMuBH1r7II6C0bycVXTA_2Er32_Ay';
+  static const String supabaseAnonKey =
+      'sb_publishable_BVCMuBH1r7II6C0bycVXTA_2Er32_Ay';
 
   static Future<void> initialize() async {
     if (_isConfigured) return;
@@ -132,5 +133,60 @@ class SupabaseService {
   static Future<void> signOut() async {
     if (!_isConfigured || _client == null) return;
     await _client!.auth.signOut();
+  }
+
+  static Future<void> submitFeedback({
+    required String type,
+    required String title,
+    required String description,
+    String? email,
+  }) async {
+    if (!_isConfigured || _client == null) return;
+
+    try {
+      await _client!.from('feedback').insert({
+        'type': type,
+        'title': title,
+        'description': description,
+        'email': email,
+        'status': 'pending',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      debugPrint('Feedback submitted: $type - $title');
+    } catch (e) {
+      debugPrint('Error submitting feedback: $e');
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getFeedbackTickets() async {
+    if (!_isConfigured || _client == null) return [];
+
+    try {
+      final response = await _client!
+          .from('feedback')
+          .select()
+          .order('created_at', ascending: false);
+      return response;
+    } catch (e) {
+      debugPrint('Error fetching feedback: $e');
+      return [];
+    }
+  }
+
+  static Future<void> updateFeedbackStatus(int id, String status) async {
+    if (!_isConfigured || _client == null) return;
+
+    try {
+      await _client!
+          .from('feedback')
+          .update({
+            'status': status,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', id);
+      debugPrint('Feedback status updated: $id -> $status');
+    } catch (e) {
+      debugPrint('Error updating feedback status: $e');
+    }
   }
 }

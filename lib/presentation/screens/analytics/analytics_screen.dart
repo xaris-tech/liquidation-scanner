@@ -19,12 +19,9 @@ class AnalyticsScreen extends ConsumerWidget {
         slivers: [
           SliverAppBar(
             expandedHeight: 120,
+            floating: true,
             pinned: true,
             backgroundColor: Colors.transparent,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => context.pop(),
-            ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
@@ -35,13 +32,13 @@ class AnalyticsScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
+              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
               title: Text(
                 'Analytics',
                 style: TextStyle(
                   color: AppColors.onPrimary,
                   fontWeight: FontWeight.bold,
-                  fontSize: 20,
+                  fontSize: 24,
                 ),
               ),
             ),

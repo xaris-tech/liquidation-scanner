@@ -1,4 +1,4 @@
-package com.liquidation.liquidation_scanner
+package com.liquify.app
 
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
@@ -6,7 +6,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.liquidation.liquidation_scanner/llm"
+    private val CHANNEL = "com.liquify.app/llm"
     private var isInitialized = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
