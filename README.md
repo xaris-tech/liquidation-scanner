@@ -141,6 +141,11 @@ lib/
   <img src="audit-receipt.jpg" alt="Audit Verification" width="240" />
 </p>
 
+<p align="center">
+  <strong>Analytics Dashboard</strong><br />
+  <img src="analytics-screen.jpg" alt="Analytics Dashboard" width="240" />
+</p>
+
 ---
 
 ## Installation
