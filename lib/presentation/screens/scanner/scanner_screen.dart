@@ -170,6 +170,11 @@ class _ScannerScreenState extends State<ScannerScreen>
         foregroundColor: Colors.white,
         title: const Text('Adjust Corners'),
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => context.pop(),
+          tooltip: 'Exit scanner',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

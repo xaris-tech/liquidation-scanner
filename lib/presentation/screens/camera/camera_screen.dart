@@ -78,6 +78,16 @@ class _CameraScreenState extends State<CameraScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => context.pop(),
+          tooltip: 'Exit',
+        ),
+      ),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [

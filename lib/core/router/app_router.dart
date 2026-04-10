@@ -29,6 +29,16 @@ final appRouter = GoRouter(
               const NoTransitionPage(child: ProjectsScreen()),
         ),
         GoRoute(
+          path: '/scan',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            final projectId = extra?['projectId'] as int?;
+            return NoTransitionPage(
+              child: _CameraScreenWithProject(projectId: projectId),
+            );
+          },
+        ),
+        GoRoute(
           path: '/analytics',
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: AnalyticsScreen()),
@@ -39,17 +49,6 @@ final appRouter = GoRouter(
               const NoTransitionPage(child: SettingsScreen()),
         ),
       ],
-    ),
-    GoRoute(
-      path: '/scan',
-      parentNavigatorKey: _rootNavigatorKey,
-      pageBuilder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        final projectId = extra?['projectId'] as int?;
-        return MaterialPage(
-          child: _CameraScreenWithProject(projectId: projectId),
-        );
-      },
     ),
     GoRoute(
       path: '/project/:id',
@@ -181,57 +180,57 @@ class _CameraScreenWithProjectState extends State<_CameraScreenWithProject>
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-      },
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: AbsorbPointer(
-            absorbing: true,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedBuilder(
-                    animation: _rotateController,
-                    builder: (context, child) {
-                      return Transform.rotate(
-                        angle: _rotateController.value * 2 * 3.14159,
-                        child: SizedBox(
-                          width: 80,
-                          height: 80,
-                          child: CustomPaint(
-                            painter: _LoadingSpinnerPainter(
-                              color: const Color(0xFF6366F1),
-                              backgroundColor: const Color(
-                                0xFF6366F1,
-                              ).withValues(alpha: 0.1),
-                            ),
-                          ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => context.pop(),
+          tooltip: 'Exit',
+        ),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedBuilder(
+                animation: _rotateController,
+                builder: (context, child) {
+                  return Transform.rotate(
+                    angle: _rotateController.value * 2 * 3.14159,
+                    child: SizedBox(
+                      width: 80,
+                      height: 80,
+                      child: CustomPaint(
+                        painter: _LoadingSpinnerPainter(
+                          color: const Color(0xFF6366F1),
+                          backgroundColor: const Color(
+                            0xFF6366F1,
+                          ).withValues(alpha: 0.1),
                         ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    _statusMessage,
-                    style: TextStyle(
-                      color: Color(0xFF1F2937),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _subMessage,
-                    style: TextStyle(color: Color(0xFF6B7280), fontSize: 14),
-                  ),
-                ],
+                  );
+                },
               ),
-            ),
+              const SizedBox(height: 24),
+              Text(
+                _statusMessage,
+                style: TextStyle(
+                  color: Color(0xFF1F2937),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _subMessage,
+                style: TextStyle(color: Color(0xFF6B7280), fontSize: 14),
+              ),
+            ],
           ),
         ),
       ),
