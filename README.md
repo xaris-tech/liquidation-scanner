@@ -141,46 +141,6 @@ lib/
   <img src="audit-receipt.jpg" alt="Audit Verification" width="240" />
 </p>
 
-<p align="center">
-  <strong>Analytics Dashboard</strong><br />
-  <img src="analytics-screen.jpg" alt="Analytics Dashboard" width="240" />
-</p>
-
-<p align="center">
-  <strong>Login Screen</strong><br />
-  <img src="docs/screenshots/login.png" alt="Login Screen" width="240" />
-</p>
-
-<p align="center">
-  <strong>Projects List</strong><br />
-  <img src="docs/screenshots/projects.png" alt="Projects List" width="240" />
-</p>
-
-<p align="center">
-  <strong>Scanner</strong><br />
-  <img src="docs/screenshots/scanner.png" alt="Scanner" width="240" />
-</p>
-
-<p align="center">
-  <strong>Receipt Gallery</strong><br />
-  <img src="docs/screenshots/receipts.png" alt="Receipt Gallery" width="240" />
-</p>
-
-<p align="center">
-  <strong>Audit Verification</strong><br />
-  <img src="docs/screenshots/audit.png" alt="Audit Verification" width="240" />
-</p>
-
-<p align="center">
-  <strong>Analytics</strong><br />
-  <img src="docs/screenshots/analytics.png" alt="Analytics Dashboard" width="240" />
-</p>
-
-<p align="center">
-  <strong>Settings</strong><br />
-  <img src="docs/screenshots/settings.png" alt="Settings" width="240" />
-</p>
-
 ---
 
 ## Installation
